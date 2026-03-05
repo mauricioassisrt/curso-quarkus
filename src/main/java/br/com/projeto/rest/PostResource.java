@@ -2,6 +2,7 @@ package br.com.projeto.rest;
 
 import br.com.projeto.domain.model.PostEntity;
 import br.com.projeto.domain.model.UserEntity;
+import br.com.projeto.domain.repository.FollowersRepository;
 import br.com.projeto.domain.repository.PostRepository;
 import br.com.projeto.domain.repository.UserRepository;
 import br.com.projeto.rest.dto.CreatePostUserRequest;
@@ -25,12 +26,14 @@ public class PostResource {
     private final Validator validator;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final FollowersRepository followersRepository;
 
     @Inject
-    public PostResource(Validator validator, UserRepository userRepository, PostRepository postRepository1) {
+    public PostResource(Validator validator, UserRepository userRepository, PostRepository postRepository, FollowersRepository followersRepository1) {
         this.validator = validator;
         this.userRepository = userRepository;
-        this.postRepository = postRepository1;
+        this.postRepository = postRepository;
+        this.followersRepository = followersRepository1;
     }
 
     @POST
@@ -54,10 +57,19 @@ public class PostResource {
     }
 
     @GET
-    public Response listPosts(@PathParam("userId") Long id) {
+    public Response listPosts(@PathParam("userId") Long id, @HeaderParam("follower") Long follower) {
         UserEntity user = userRepository.findById(id);
         if (user == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if(follower == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("You forgot the header followerId").build();
+        }
+        UserEntity followerEntity = userRepository.findById(follower);
+        boolean isFollow = followersRepository.followersUser(followerEntity, user);
+        if (!isFollow) {
+            return Response.status(Response.Status.FORBIDDEN).entity("You can't see thease posts").build();
         }
         var query = postRepository.find("usuario", user);
         var list = query.list();
